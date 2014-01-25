@@ -14,12 +14,18 @@ def gen_exp(pkt_lst, s=None, e=None):
 
     return " && ".join("(%s)" % x for x in parts)
 
-def remove(lst, x):
-    return [i for i in lst if i != x]
+def remove(lst, xs):
+    return [i for i in lst if i not in xs]
 
 def pkt_count(pcap):
     out = subprocess.check_output(["tcpdump", "-nr", pcap])
     return len(out.splitlines())
+
+def window(d,slice=5):
+    for x in xrange(0,len(d),slice):
+        a=x
+        b=x+slice
+        yield d[a:b]
 
 class Narrow:
     def __init__(self, pcap, test_script):
@@ -35,6 +41,18 @@ class Narrow:
             return False
         except subprocess.CalledProcessError:
             return True
+
+    def rule_out_packets(self, lst, chunksize=1):
+        for block in window(lst, chunksize):
+            new_list = remove(lst, block)
+            if self.is_bad(new_list):
+                lst = new_list
+                self.ok(block)
+        return lst
+
+    def ok(self, block):
+        print block,
+        sys.stdout.flush()
 
     def run(self):
         s = last_bad_s = 0
@@ -53,21 +71,18 @@ class Narrow:
         e = last_bad_e
         print "apx. end packet", e
 
-        lst = range(s, e+1)
 
+        lst = range(s, e+1)
         #remove individual packets
         if not self.is_bad(lst):
             return
+
         print "OK Packets:"
-        for x in lst:
-            new_list = remove(lst, x)
-            if self.is_bad(new_list):
-                lst = new_list
-                print x,
-                sys.stdout.flush()
-        print
+        for chunksize in 20, 5, 1:
+            lst = self.rule_out_packets(lst, chunksize=chunksize)
 
         self.is_bad(lst)
+        print
         print "Final packet list", lst
 
 if __name__ == "__main__":
