@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -77,23 +78,31 @@ func writeFiltered(filename string, packets []pkt, sel packetSelection) (int, er
 	return written, nil
 }
 
-func isBad(pcap, script string) (bool, error) {
+func isBad(pcap, script string) (bool, string, error) {
 	cmd := exec.Command(script, pcap)
-	err := cmd.Start()
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return true, err
+		log.Fatal(err)
+	}
+	err = cmd.Start()
+	if err != nil {
+		return true, "", err
+	}
+	out, err := ioutil.ReadAll(stdout)
+	if err != nil {
+		return true, "", err
 	}
 	err = cmd.Wait()
-	return err != nil, nil
+	return err != nil, string(out), nil
 }
 
-func check(packets []pkt, script string, sel packetSelection) (bool, int, error) {
+func check(packets []pkt, script string, sel packetSelection) (bool, int, string, error) {
 	written, err := writeFiltered("_check.pcap", packets, sel)
 	if err != nil {
-		return false, 0, err
+		return false, 0, "", err
 	}
-	bad, err := isBad("_check.pcap", script)
-	return bad, written, err
+	bad, out, err := isBad("_check.pcap", script)
+	return bad, written, out, err
 }
 
 func reduce(v int) int {
@@ -115,8 +124,8 @@ func findEdge(packets []pkt, script string, selection packetSelection, which str
 	increment := 16384 //FIXME
 	var last_bad_selection packetSelection
 	for {
-		bad, written, err := check(packets, script, selection)
-		log.Printf("Selection=%s tested=%d bad=%v", selection, written, bad)
+		bad, written, out, err := check(packets, script, selection)
+		log.Printf("Selection=%s tested=%d bad=%v out=%s", selection, written, bad, out)
 		if err != nil {
 			return selection, err
 		}
@@ -153,8 +162,8 @@ func randomRemove(packets []pkt, script string, selection packetSelection) (pack
 	last_bad_selection = selection
 	for idx, packetIndex := range packetIndexes {
 		selection.list = append(selection.list, packetIndex)
-		bad, written, err := check(packets, script, selection)
-		log.Printf("%4d/%4d Selection=%s tested=%d bad=%v", idx, len(packetIndexes), selection, written, bad)
+		bad, written, out, err := check(packets, script, selection)
+		log.Printf("%4d/%4d Selection=%s tested=%d bad=%v %s", idx, len(packetIndexes), selection, written, bad, out)
 		if err != nil {
 			return selection, err
 		}
@@ -194,8 +203,8 @@ func narrow(pcap, script string) error {
 		return err
 	}
 	log.Printf("Final selection: %v", selection)
-	bad, written, err := check(packets, script, selection)
-	log.Printf("Selection=%s packets=%d bad=%v", selection, written, bad)
+	bad, written, out, err := check(packets, script, selection)
+	log.Printf("Selection=%s packets=%d bad=%v out=%s", selection, written, bad, out)
 	return err
 }
 
