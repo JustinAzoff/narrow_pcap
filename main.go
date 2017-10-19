@@ -116,7 +116,7 @@ func findEdge(packets []pkt, script string, selection packetSelection, which str
 	var last_bad_selection packetSelection
 	for {
 		bad, written, err := check(packets, script, selection)
-		log.Printf("Selection=%s packets=%d bad=%v", selection, written, bad)
+		log.Printf("Selection=%s tested=%d bad=%v", selection, written, bad)
 		if err != nil {
 			return selection, err
 		}
@@ -151,10 +151,10 @@ func randomRemove(packets []pkt, script string, selection packetSelection) (pack
 
 	var last_bad_selection packetSelection
 	last_bad_selection = selection
-	for _, packetIndex := range packetIndexes {
+	for idx, packetIndex := range packetIndexes {
 		selection.list = append(selection.list, packetIndex)
 		bad, written, err := check(packets, script, selection)
-		log.Printf("Selection=%s packets=%d bad=%v", selection, written, bad)
+		log.Printf("%4d/%4d Selection=%s tested=%d bad=%v", idx, len(packetIndexes), selection, written, bad)
 		if err != nil {
 			return selection, err
 		}
