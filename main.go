@@ -109,7 +109,7 @@ func reduce(v int) int {
 	if v == 1 {
 		return 1
 	}
-	return v / 4
+	return v / 2
 }
 
 func permRange(a, b int) []int {
@@ -136,7 +136,7 @@ func findEdge(packets []pkt, script string, selection packetSelection, which str
 			log.Printf("setting selection back to %s", last_bad_selection)
 			selection = last_bad_selection
 			increment = reduce(increment)
-			if increment <= 1024 {
+			if increment <= 1 {
 				break
 			}
 		}
